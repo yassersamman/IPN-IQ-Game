@@ -1,0 +1,310 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>INP IQ Game</title>
+  <meta name="theme-color" content="#312e81" />
+  <link rel="manifest" href="manifest.json" />
+  <style>
+    html,body{height:100%;margin:0;font-family:Inter, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial;}
+    body{display:flex;align-items:center;justify-content:center;background:#f8fafc;padding:16px}
+    .wrap{width:420px;max-width:95%;background:#fff;border-radius:12px;box-shadow:0 10px 30px rgba(2,6,23,0.08);padding:18px}
+    header{display:flex;gap:12px;align-items:center;margin-bottom:12px}
+    header img{width:64px;height:64px;object-fit:contain}
+    h1{margin:0;font-size:20px;color:#0f172a}
+    .sub{font-size:12px;color:#6b7280}
+    .controls{display:flex;gap:8px;align-items:center;margin-bottom:12px}
+    .controls button{padding:8px 10px;border-radius:8px;border:1px solid #e6eef8;background:#fff;cursor:pointer}
+    .controls button[disabled]{opacity:0.6;cursor:default}
+    .question{font-size:16px;font-weight:600;color:#0f172a;margin-bottom:8px}
+    .opts{display:flex;flex-wrap:wrap;gap:8px;margin-top:12px}
+    .opts button{flex:1 1 48%;padding:12px;border-radius:10px;border:1px solid #e6eef8;background:#eef2ff;cursor:pointer}
+    .footer{margin-top:12px;font-size:12px;color:#6b7280;text-align:center}
+    .modal{position:fixed;inset:0;background:rgba(2,6,23,0.45);display:flex;align-items:center;justify-content:center}
+    .modal .box{width:360px;background:#fff;padding:18px;border-radius:12px}
+    .err{color:#ef4444;font-size:13px}
+    .small{font-size:13px;color:#6b7280}
+  </style>
+</head>
+<body>
+  <div class="wrap" id="app">
+    <header>
+      <img id="logo" src="logo.png" alt="INP Logo" />
+      <div style="flex:1">
+        <div style="display:flex;align-items:baseline;gap:8px">
+          <h1>INP IQ Game</h1>
+          <div id="playerName" style="margin-left:auto;font-size:14px;color:#1f2937"></div>
+        </div>
+        <div class="sub">Developed By Eng: Yasser M. Elsamman</div>
+      </div>
+    </header>
+
+    <div class="controls">
+      <div id="levelTag" class="small">Level: <strong id="levelText">—</strong></div>
+      <div style="margin-left:auto;display:flex;gap:8px">
+        <button id="btn5050">50-50</button>
+        <button id="btnShield">Shield +10s</button>
+        <button id="btnRestartFull">Restart (all)</button>
+      </div>
+    </div>
+
+    <div id="content">
+      <!-- question area injected by JS -->
+    </div>
+
+    <div class="footer">InTask For Networking &amp; Programming</div>
+  </div>
+
+  <!-- Intro modal -->
+  <div id="intro" class="modal" style="display:none">
+    <div class="box">
+      <h3 style="margin:0">Welcome to INP IQ Game</h3>
+      <p style="color:#374151">Please enter your name and age to start. Questions will be adjusted to the age group.</p>
+      <div style="display:flex;flex-direction:column;gap:8px">
+        <input id="nameInput" placeholder="Your name" style="padding:10px;border-radius:8px;border:1px solid #e6eef8" />
+        <input id="ageInput" placeholder="Your age" inputmode="numeric" style="padding:10px;border-radius:8px;border:1px solid #e6eef8" />
+        <div id="introErr" class="err" style="display:none"></div>
+        <div style="display:flex;gap:8px;margin-top:6px">
+          <button id="startBtn" style="flex:1;padding:10px;border-radius:8px;background:#312e81;color:#fff;border:none">Start</button>
+        </div>
+      </div>
+      <div style="margin-top:8px;font-size:12px;color:#6b7280">By continuing you agree to local use of this app on your device.</div>
+    </div>
+  </div>
+
+  <script>
+  // Questions bank (children, youth, adult)
+  const BANK = {
+    children: [
+      { id:'c1', q:'What color is the sky on a clear day?', a:'Blue', options:['Green','Blue','Red','Yellow'] },
+      { id:'c2', q:'2 + 3 = ?', a:'5', options:['4','5','6','7'] },
+      { id:'c3', q:'Which animal says "meow"?', a:'Cat', options:['Dog','Cow','Cat','Sheep'] }
+    ],
+    youth: [
+      { id:'y1', q:'Complete sequence: 1, 2, 4, 8, ?', a:'16', options:['10','12','14','16'] },
+      { id:'y2', q:'What does HTML stand for?', a:'HyperText Markup Language', options:['HyperText Make Language','HyperText Markup Language','HighText Markup Language','Hyperlink Markup Language'] },
+      { id:'y3', q:'Which planet is known as the Red Planet?', a:'Mars', options:['Venus','Mars','Jupiter','Saturn'] }
+    ],
+    adult: [
+      { id:'a1', q:'If f(x)=2x+3, f^{-1}(7)=?', a:'2', options:['1','2','3','4'] },
+      { id:'a2', q:'Which protocol is used to securely browse the web?', a:'HTTPS', options:['FTP','HTTP','SMTP','HTTPS'] },
+      { id:'a3', q:'What is the capital city of Canada?', a:'Ottawa', options:['Toronto','Ottawa','Vancouver','Montreal'] }
+    ]
+  };
+
+  // State
+  let player = JSON.parse(localStorage.getItem('inp_player') || 'null');
+  let level = localStorage.getItem('inp_level') || 'youth';
+  let perQTime = parseInt(localStorage.getItem('inp_perQTime') || '30', 10);
+  let used5050 = JSON.parse(localStorage.getItem('inp_5050') || 'false');
+  let usedShield = JSON.parse(localStorage.getItem('inp_shield') || 'false');
+  let seed = parseFloat(localStorage.getItem('inp_seed') || Math.random());
+  let bank = [];
+  let idx = 0;
+  let score = parseInt(localStorage.getItem('inp_score') || '0', 10);
+  let timeLeft = perQTime;
+  let timer = null;
+  let qStartTs = null;
+  let visibleOptions = [];
+
+  // DOM refs
+  const intro = document.getElementById('intro');
+  const startBtn = document.getElementById('startBtn');
+  const nameInput = document.getElementById('nameInput');
+  const ageInput = document.getElementById('ageInput');
+  const introErr = document.getElementById('introErr');
+  const content = document.getElementById('content');
+  const levelText = document.getElementById('levelText');
+  const playerNameDiv = document.getElementById('playerName');
+  const btn5050 = document.getElementById('btn5050');
+  const btnShield = document.getElementById('btnShield');
+  const btnRestartFull = document.getElementById('btnRestartFull');
+
+  function chooseLevelByAge(ageNum){
+    if(ageNum < 12) return 'children';
+    if(ageNum >= 18) return 'adult';
+    return 'youth';
+  }
+
+  function saveState(){
+    localStorage.setItem('inp_player', JSON.stringify(player));
+    localStorage.setItem('inp_level', level);
+    localStorage.setItem('inp_perQTime', String(perQTime));
+    localStorage.setItem('inp_5050', JSON.stringify(used5050));
+    localStorage.setItem('inp_shield', JSON.stringify(usedShield));
+    localStorage.setItem('inp_seed', String(seed));
+    localStorage.setItem('inp_score', String(score));
+  }
+
+  function shuffle(arr){
+    const a = arr.slice();
+    for(let i=a.length-1;i>0;i--){
+      const j = Math.floor(Math.random()*(i+1));
+      [a[i],a[j]]=[a[j],a[i]];
+    }
+    return a;
+  }
+
+  function prepareBank(){
+    bank = BANK[level].slice();
+    bank = shuffle(bank);
+    idx = 0;
+    score = 0;
+    saveState();
+  }
+
+  function showIntroIfNeeded(){
+    if(!player || !player.name || !player.age){
+      intro.style.display='flex';
+      return;
+    }
+    intro.style.display='none';
+  }
+
+  function renderQuestion(){
+    if(idx >= bank.length){
+      content.innerHTML = `
+        <div style="text-align:center">
+          <div style="font-size:20px;font-weight:700;color:green">🎉 Completed!</div>
+          <div style="margin-top:8px;color:#374151">Your Score: <strong>${score}</strong> / ${bank.length}</div>
+          <div style="margin-top:12px"><button id="playAgain" style="padding:10px 14px;border-radius:10px;background:#312e81;color:#fff;border:none">Play Again</button></div>
+        </div>`;
+      document.getElementById('playAgain').addEventListener('click', ()=>{ prepareBank(); renderQuestion(); });
+      return;
+    }
+    const q = bank[idx];
+    visibleOptions = q.options.slice();
+    content.innerHTML = `
+      <div>
+        <div style="display:flex;justify-content:space-between;align-items:center">
+          <div class="question">${q.q}</div>
+          <div id="timeLeft">${timeLeft}s</div>
+        </div>
+        <div class="opts" id="optsArea"></div>
+        <div style="display:flex;justify-content:space-between;margin-top:12px;align-items:center">
+          <div class="small">Question ${idx+1} / ${bank.length}</div>
+          <div style="font-size:13px;color:#0f172a">Score: <strong id="scoreVal">${score}</strong></div>
+        </div>
+      </div>
+    `;
+    const optsArea = document.getElementById('optsArea');
+    visibleOptions.forEach((opt,i)=>{
+      const b = document.createElement('button');
+      b.textContent = opt;
+      b.onclick = ()=> handleAnswer(opt);
+      optsArea.appendChild(b);
+    });
+    // update UI
+    document.getElementById('scoreVal').textContent = String(score);
+    document.getElementById('levelText').textContent = level;
+    playerNameDiv.textContent = player && player.name ? `Player: ${player.name}` : '';
+    btn5050.disabled = used5050;
+    btnShield.disabled = usedShield;
+    // start timer
+    timeLeft = perQTime;
+    qStartTs = Date.now();
+    if(timer) clearInterval(timer);
+    timer = setInterval(()=>{
+      timeLeft--;
+      const tDom = document.getElementById('timeLeft');
+      if(tDom) tDom.textContent = `${timeLeft}s`;
+      if(timeLeft <= 0){
+        clearInterval(timer);
+        // auto advance as wrong answer
+        idx++;
+        saveState();
+        renderQuestion();
+      }
+    },1000);
+  }
+
+  function handleAnswer(selected){
+    if(timer) clearInterval(timer);
+    const q = bank[idx];
+    const correct = selected === q.a;
+    let gained = 0;
+    if(correct){
+      gained += 1;
+      const elapsed = (Date.now() - qStartTs)/1000;
+      if(elapsed <= perQTime/2) gained += 2; // speed bonus
+      score += gained;
+    }
+    idx++;
+    saveState();
+    renderQuestion();
+  }
+
+  btn5050.addEventListener('click', ()=>{
+    if(used5050) return;
+    const q = bank[idx];
+    const correct = q.a;
+    const wrongs = q.options.filter(o=>o!==correct);
+    const keepWrong = wrongs.length ? [wrongs[Math.floor(Math.random()*wrongs.length)]] : [];
+    visibleOptions = shuffle([correct,...keepWrong]);
+    // re-render options area
+    const optsArea = document.getElementById('optsArea');
+    if(optsArea){
+      optsArea.innerHTML='';
+      visibleOptions.forEach(opt=>{
+        const b = document.createElement('button');
+        b.textContent = opt;
+        b.onclick = ()=> handleAnswer(opt);
+        optsArea.appendChild(b);
+      });
+    }
+    used5050 = true;
+    saveState();
+    btn5050.disabled = true;
+  });
+
+  btnShield.addEventListener('click', ()=>{
+    if(usedShield) return;
+    timeLeft += 10;
+    usedShield = true;
+    saveState();
+    btnShield.disabled = true;
+    const tDom = document.getElementById('timeLeft');
+    if(tDom) tDom.textContent = `${timeLeft}s`;
+  });
+
+  btnRestartFull.addEventListener('click', ()=>{
+    localStorage.clear();
+    player = null;
+    showIntroIfNeeded();
+  });
+
+  startBtn.addEventListener('click', ()=>{
+    const name = nameInput.value.trim();
+    const age = parseInt(ageInput.value,10);
+    if(!name){ introErr.style.display='block'; introErr.textContent='Name is required'; return; }
+    if(!age || isNaN(age) || age<=0){ introErr.style.display='block'; introErr.textContent='Valid age is required'; return; }
+    introErr.style.display='none';
+    player = { name, age };
+    level = chooseLevelByAge(age);
+    localStorage.setItem('inp_player', JSON.stringify(player));
+    localStorage.setItem('inp_level', level);
+    seed = Math.random();
+    localStorage.setItem('inp_seed', String(seed));
+    prepareBank();
+    intro.style.display='none';
+    renderQuestion();
+  });
+
+  // initial boot
+  if(player && player.name && player.age){
+    level = localStorage.getItem('inp_level') || chooseLevelByAge(player.age);
+    prepareBank();
+    showIntroIfNeeded();
+    renderQuestion();
+  } else {
+    showIntroIfNeeded();
+  }
+
+  // PWA: register service worker if available
+  if('serviceWorker' in navigator){
+    navigator.serviceWorker.register('service-worker.js').catch(()=>{});
+  }
+  </script>
+</body>
+</html>

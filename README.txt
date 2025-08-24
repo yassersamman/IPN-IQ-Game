@@ -1,0 +1,1 @@
+INP IQ Game - PWA package\n\nOpen index.html in a static server or host the folder. On mobile, open URL and 'Add to Home Screen' to install.
