@@ -1,9 +1,10 @@
 const questionsBank = {
   easy: [
     {q:"2 + 3 = ?", options:["4","5","6","7"], answer:"5"},
+    {q:"Which is the hiest?", options:["Car","Dog","Pen","Book"], answer:"Dog"},
     {q:"What color is the sky on a clear day?", options:["Blue","Green","Red","Yellow"], answer:"Blue"},
     {q:"5 - 2 = ?", options:["2","3","4","5"], answer:"3"},
-    {q:"Which is an animal?", options:["Car","Dog","Chair","Book"], answer:"Dog"},
+    {q:"Which is an animal?", options:["Car","Dog","Pen","Book"], answer:"Dog"},
     {q:"What comes after 9?", options:["8","9","10","11"], answer:"10"},
     {q:"How many legs does a spider have?", options:["6","7","8","9"], answer:"8"},
     {q:"Which shape has four equal sides?", options:["Rectangle","Circle","Triangle","Square"], answer:"Square"},
