@@ -20,8 +20,18 @@ function startGame() {
 }
 
 function getRandomQuestions(level, count) {
-  const pool = [...questionsBank[level]];
-  return pool.sort(() => Math.random() - 0.5).slice(0, count);
+  const pool = [...(questionsBank[level] || [])];
+  if(pool.length <= count) return shuffle(pool);
+  return shuffle(pool).slice(0, count);
+}
+
+function shuffle(arr){
+  const a = arr.slice();
+  for(let i=a.length-1;i>0;i--){
+    const j = Math.floor(Math.random()*(i+1));
+    [a[i],a[j]]=[a[j],a[i]];
+  }
+  return a;
 }
 
 function showQuestion() {
@@ -30,7 +40,7 @@ function showQuestion() {
   document.getElementById("questionText").innerText = q.q;
   const opts = document.getElementById("options");
   opts.innerHTML = "";
-  q.options.sort(() => Math.random() - 0.5).forEach(opt => {
+  shuffle(q.options).forEach(opt => {
     const btn = document.createElement("div");
     btn.className = "option";
     btn.innerText = opt;
